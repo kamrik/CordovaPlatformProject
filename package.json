@@ -1,0 +1,25 @@
+{
+  "name": "CordovaPlatformProject",
+  "version": "0.0.1",
+  "description": "Experimental API for cordova.",
+  "main": "src/PlatformProject.js",
+  "scripts": {
+    "test": "echo \"No tests yet added\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kamrik/CordovaGulpTemplate.git"
+  },
+  "keywords": [
+    "Cordova"
+  ],
+  "author": "Mark Koudritsky <kamrik@gmail.com>",
+  "license": "Apache version 2.0",
+  "devDependencies": {},
+  "dependencies": {
+    "cordova-lib": "latest",
+    "q": "^1.2.0",
+    "shelljs": "^0.3.0",
+    "lodash": "^3.5.0"
+  }
+}

@@ -31,50 +31,54 @@ create(prjInfo) = init + addPlugins + updateConfig + copyWww
 var Q = require('q');
 var path = require('path');
 var fs = require('fs');
-var semver = require('semver');
-var unorm = require('unorm');
+// var semver = require('semver');
+// var unorm = require('unorm');
 var shell = require('shelljs');
-var et = require('elementtree');
-var __ = require('underscore');
-var _prepare = require('./cordova/prepare');
-var mergeXml = _prepare._mergeXml;
+// var et = require('elementtree');
+var __ = require('lodash');
 
 
-var superspawn = require('./cordova/superspawn');
-var ConfigParser  = require('./configparser/ConfigParser');
-var PluginInfoProvider = require('./PluginInfoProvider');
-var ConfigKeeper = require('./plugman/util/ConfigKeeper');
-var config_changes  = require('./plugman/util/config-changes');
-var mungeutil = require('./plugman/util/munge-util');
+var cdv = {};
 
+// cordova-lib imports
+cdv.lib = require('cordova-lib');
+cdv.superspawn = require('../node_modules/cordova-lib/src/cordova/superspawn');
+cdv.PluginInfoProvider = require('../node_modules/cordova-lib/src/PluginInfoProvider');
+cdv.ConfigKeeper = require('../node_modules/cordova-lib/src/plugman/util/ConfigKeeper');
+cdv.config_changes  = require('../node_modules/cordova-lib/src/plugman/util/config-changes');
+cdv.mungeutil = require('../node_modules/cordova-lib/src/plugman/util/munge-util');
+cdv.common = require('../node_modules/cordova-lib/src/plugman/platforms/common');
+cdv.mergeXml = require('../node_modules/cordova-lib/src/cordova/prepare')._mergeXml;
 
-// TODO: don't use events, use the event dispatcher inside the project object
-var events = require('./events');
-var common = require('./plugman/platforms/common');
+// Aliases
+cdv.platforms = cdv.lib.cordova_platforms;
+cdv.ConfigParser  = cdv.lib.configparser;
+cdv.events = cdv.lib.events;
 
+// Legacy logging
+cdv.events.on('log', console.log);
+cdv.events.on('error', console.error);
+cdv.events.on('warn', console.warn);
+cdv.events.on('verbose', console.log);
 
 
 exports.PlatformProject = PlatformProject;
-function PlatformProject() {
+function PlatformProject(platform) {
     // Should probably be empty
 }
 
 
 PlatformProject.prototype.open = open;
-function open(root) {
+function open(platform, root) {
     var self = checkThis(this);
     var rootDir = root || self.root;
-    self.root = rootDir;
 
-    // TMP: the parser + handler should be a bunch of functions defined as methods
-    // here and partially overridden in AndroidProject.
-    var ParserConstructor = require('./cordova/metadata/' + self.platform + '_parser');
-    self.parser = new ParserConstructor(self.root);
-    self.handler = require('./plugman/platforms/' + self.platform);
-    self.wwwDir = self.handler.www_dir(self.root);
+    // Add all the platform specific code.
+    // This overrides any methods that are also defined in prototype or the constructor.
+    cdv.platforms.PlatformProjectAdapter.call(self, platform, rootDir);
+
 
     self.jsModuleObjects = [];
-
     self.installedPlugins = [];  // TODO: load this from persisted info, if any.
     return Q();
 }
@@ -112,21 +116,21 @@ function init(opts) {
 
     // Async version
     return Q().then(function() {
-        return superspawn.spawn(bin, args, copts);
+        return cdv.superspawn.spawn(bin, args, copts);
     }).then(function() {
-        return self.open();
+        return self.open(self.platform, self.root);
     }).then(function() {
         // TMP: Copy the default config.xml
         // It should just sit at parser.config_xml() from the beginning
         // Either savepoints or smart enough merging should take care of it all
         var defaultRuntimeConfigFile = path.join(self.root, 'cordova', 'defaults.xml');
-        shell.cp('-f', defaultRuntimeConfigFile, self.parser.config_xml());
+        shell.cp('-f', defaultRuntimeConfigFile, self.config_xml());
 
         // TMP: Create plutform_www, should either exist in platform template
         // or however it should be done with browserify.
         var platform_www = path.join(self.root, 'platform_www');
         shell.mkdir('-p', platform_www);
-        shell.cp('-f', path.join(self.wwwDir, 'cordova.js'), path.join(platform_www, 'cordova.js'));
+        shell.cp('-f', path.join(self.www_dir(), 'cordova.js'), path.join(platform_www, 'cordova.js'));
     });
 }
 
@@ -154,46 +158,20 @@ function addPlugins(plugins, opts) {
 
     // Handle install for all the files / assets
 
-    var handler = self.handler;
     var project_files;
-    if (handler.parseProjectFile) {
-        project_files = handler.parseProjectFile(self.root);
+    if (self.parseProjectFile) {
+        project_files = self.parseProjectFile(self.root);
     }
 
     var tmpPrj= {plugins_dir: path.join(self.root, self.cfg.name(), 'Plugins')};
 
 
     plugins.forEach(function(p) {
-        var sourceFiles = p.getSourceFiles(self.platform);
-        var headerFiles = p.getHeaderFiles(self.platform);
-        var resourceFiles = p.getResourceFiles(self.platform);
-        var frameworkFiles = p.getFrameworks(self.platform);
-        var libFiles = p.getLibFiles(self.platform);
         var assetFiles = p.getAssets(self.platform);
+        var pluginItems = p.getFilesAndFrameworks(self.platform);
 
-
-        var installer = handler['source-file'].install;
-        sourceFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {}, project_files);
-        });
-
-        installer = handler['header-file'].install;
-        headerFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {}, project_files);
-        });
-
-        installer = handler['resource-file'].install;
-        resourceFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {}, project_files);
-        });
-
-        installer = handler['framework'].install;
-        frameworkFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {}, project_files);
-        });
-
-        installer = handler['lib-file'].install;
-        libFiles.forEach(function(item) {
+        pluginItems.forEach(function(item) {
+            var installer = self.getInstaller(item.itemType);
             installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
@@ -201,7 +179,7 @@ function addPlugins(plugins, opts) {
         // Need to either redo on each prepare, or put in a staging www dir
         // that will be later copied into the real www dir on each prepare / www update.
         assetFiles.forEach(function(item) {
-            common.asset.install(item, p.dir, self.wwwDir); // use plugins_wwww for this
+            common.asset.install(item, p.dir, self.www_dir()); // use plugins_wwww for this
         });
 
         // Save/update metadata in project
@@ -224,10 +202,10 @@ function addPlugins(plugins, opts) {
     // Shorten it
     // Move some of the logic into platforms - the plist stuff and windows manifests stuff
     var munge = {files:{}};
-    var munger = new config_changes.PlatformMunger(self.platform, self.root, '', {save:__.noop}, self.pluginProvider); //
+    var munger = new cdv.config_changes.PlatformMunger(self.platform, self.root, '', {save:__.noop}, self.pluginProvider); //
     plugins.forEach(function(p){
         var plugin_munge = munger.generate_plugin_config_munge(p.dir, p.vars);  // TODO: vars is not part of PluginInfo, make sure we get is from somewhere
-        mungeutil.increment_munge(munge, plugin_munge);
+        cdv.mungeutil.increment_munge(munge, plugin_munge);
     });
 
     // Apply the munge
@@ -253,12 +231,12 @@ function updateConfig() {
     var self = checkThis(this);
     var cfg = self.cfg;
 
-    var platform_cfg = new ConfigParser(self.parser.config_xml());
-    mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
+    var platform_cfg = new cdv.ConfigParser(self.config_xml());
+    cdv.mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
     platform_cfg.write();
 
     // Update all the project files
-    self.parser.update_from_config(cfg);
+    self.update_from_config(cfg);
     return Q();
 }
 
@@ -267,9 +245,9 @@ function copyWww(wwwSrc) {
     var self = checkThis(this);
     //  - Copy / update web files (including from plugins? or cache the plugins part of this somewhere)
     //    parser.update_www(); // nukes www, must be changed or called before anything else that writes to www. use plugins_www
-    shell.cp('-rf', path.join(wwwSrc, '*'), self.wwwDir);
+    shell.cp('-rf', path.join(wwwSrc, '*'), self.www_dir());
     // Copy over stock platform www assets (cordova.js)
-    shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.wwwDir);
+    shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.www_dir());
     return Q();
 }
 
@@ -286,7 +264,7 @@ function build(opts) {
     var args = [];
 
     var copts = { stdio: 'inherit' };
-    return superspawn.spawn(bin, args, copts);
+    return cdv.superspawn.spawn(bin, args, copts);
 }
 
 PlatformProject.prototype.run = run;
@@ -297,7 +275,7 @@ function run(opts) {
     // return Q();
     var args = [];
     var copts = { stdio: 'inherit' };
-    return superspawn.spawn(bin, args, copts);
+    return cdv.superspawn.spawn(bin, args, copts);
 }
 
 PlatformProject.prototype.emulate = emulate;
@@ -306,13 +284,15 @@ function emulate(opts) {
     var bin = path.join(self.root, 'cordova', 'run');
     var args = ['--emulte'];
     var copts = { stdio: 'inherit' };
-    return superspawn.spawn(bin, args, copts);
+    return cdv.superspawn.spawn(bin, args, copts);
 }
 
 // create does everything needed before build/run
 PlatformProject.prototype.create = create;
 function create(prjInfo) {
     var self = checkThis(this);
+
+    self.platform = prjInfo.platform;
 
     return Q().then(function(){
         return self.init(prjInfo);
@@ -344,7 +324,7 @@ function loadPlugins(pluginDirs, opts) {
     }
 
     if (!self.pluginProvider)
-        self.pluginProvider = new PluginInfoProvider();
+        self.pluginProvider = new cdv.PluginInfoProvider();
 
     var plugins = pluginDirs.map(function(d) {
         return self.pluginProvider.getAllWithinSearchPath(d);
@@ -375,7 +355,7 @@ function loadPlugins(pluginDirs, opts) {
 PlatformProject.prototype._copyJsModule = _copyJsModule;
 function _copyJsModule(module, pluginInfo) {
     var self = checkThis(this);
-    var platformPluginsDir = path.join(self.wwwDir, 'plugins');
+    var platformPluginsDir = path.join(self.www_dir(), 'plugins');
     // Copy the plugin's files into the www directory.
     // NB: We can't always use path.* functions here, because they will use platform slashes.
     // But the path in the plugin.xml and in the cordova_plugins.js should be always forward slashes.
@@ -437,8 +417,8 @@ function _savePluginsList() {
     final_contents += '// BOTTOM OF METADATA\n';
     final_contents += '});'; // Close cordova.define.
 
-    events.emit('verbose', 'Writing out cordova_plugins.js...');
-    fs.writeFileSync(path.join(self.wwwDir, 'cordova_plugins.js'), final_contents, 'utf-8');
+    cdv.events.emit('verbose', 'Writing out cordova_plugins.js...');
+    fs.writeFileSync(path.join(self.www_dir(), 'cordova_plugins.js'), final_contents, 'utf-8');
 }
 
 function checkThis(t) {
