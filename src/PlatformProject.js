@@ -62,7 +62,6 @@ cdv.events.on('warn', console.warn);
 cdv.events.on('verbose', console.log);
 
 
-exports.PlatformProject = PlatformProject;
 function PlatformProject(platform) {
     // Should probably be empty
 }
@@ -427,3 +426,7 @@ function checkThis(t) {
     }
     return t;
 }
+
+
+exports.cdv = cdv;
+exports.PlatformProject = PlatformProject;
