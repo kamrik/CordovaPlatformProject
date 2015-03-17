@@ -293,6 +293,17 @@ function create(prjInfo) {
 
     self.platform = prjInfo.platform;
 
+    // A very ugly hack to make icons and splash screens work
+    // <icon src="?"> refers to paths relative to the traditional
+    // root of cordova project. Spoof it here with whatever path is
+    // provided as taht root.
+    if (prjInfo.paths.icons) {
+        var cdvutil = require('../node_modules/cordova-lib/src/cordova/util');
+        cdvutil.isCordova = function(d) {
+            return prjInfo.paths.icons;
+        };
+    }
+
     return Q().then(function(){
         return self.init(prjInfo);
     }).then(function(){

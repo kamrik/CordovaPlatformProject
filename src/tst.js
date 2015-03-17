@@ -28,6 +28,7 @@ var prjInfo = {
 	platform: 'ios',
     paths: {
         www: wwwDir,
+        icons: path.dirname(wwwDir),
         root: projDir,
         template: platformTemplateDir,
         plugins: [nodeModulesDir],
