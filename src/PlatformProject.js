@@ -171,14 +171,14 @@ function addPlugins(plugins, opts) {
 
         pluginItems.forEach(function(item) {
             var installer = self.getInstaller(item.itemType);
-            installer(item, p.dir, self.root, p.id, {}, project_files);
+            installer(item, p.dir, p.id, {}, project_files);
         });
 
         // This was originally part of prepare
         // Need to either redo on each prepare, or put in a staging www dir
         // that will be later copied into the real www dir on each prepare / www update.
         assetFiles.forEach(function(item) {
-            common.asset.install(item, p.dir, self.www_dir()); // use plugins_wwww for this
+            cdv.common.asset.install(item, p.dir, self.www_dir()); // use plugins_wwww for this
         });
 
         // Save/update metadata in project
