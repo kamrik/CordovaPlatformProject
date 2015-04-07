@@ -157,9 +157,9 @@ function addPlugins(plugins, opts) {
 
     // Handle install for all the files / assets
 
-    var project_files;
+    var project_file;
     if (self.parseProjectFile) {
-        project_files = self.parseProjectFile(self.root);
+        project_file = self.parseProjectFile(self.root);
     }
 
     var tmpPrj= {plugins_dir: path.join(self.root, self.cfg.name(), 'Plugins')};
@@ -171,7 +171,7 @@ function addPlugins(plugins, opts) {
 
         pluginItems.forEach(function(item) {
             var installer = self.getInstaller(item.itemType);
-            installer(item, p.dir, p.id, {}, project_files);
+            installer(item, p.dir, p.id, {}, project_file);
         });
 
         // This was originally part of prepare
