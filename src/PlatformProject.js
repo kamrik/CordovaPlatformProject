@@ -85,6 +85,11 @@ function open(platform, root) {
 PlatformProject.prototype.init = init;
 function init(opts) {
     var self = checkThis(this);
+    if (!opts.platform) {
+        throw new Error('Platform not specified');
+    }
+    self.platform = opts.platform;
+
 
     var platformTemplateDir = opts.paths.template;
     var cfg = self.cfg = opts.cfg;
@@ -226,9 +231,9 @@ function addPlugins(plugins, opts) {
 }
 
 PlatformProject.prototype.updateConfig = updateConfig;
-function updateConfig() {
+function updateConfig(cfg) {
     var self = checkThis(this);
-    var cfg = self.cfg;
+    cfg = cfg || self.cfg;
 
     var platform_cfg = new cdv.ConfigParser(self.config_xml());
     cdv.mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
@@ -272,7 +277,7 @@ function run(opts) {
     var bin = path.join(self.root, 'cordova', 'run');
     // shell.exec(bin);
     // return Q();
-    var args = [];
+    var args = opts && opts.args || [];
     var copts = { stdio: 'inherit' };
     return cdv.superspawn.spawn(bin, args, copts);
 }
@@ -281,7 +286,7 @@ PlatformProject.prototype.emulate = emulate;
 function emulate(opts) {
     var self = checkThis(this);
     var bin = path.join(self.root, 'cordova', 'run');
-    var args = ['--emulte'];
+    var args = ['--emulator'];
     var copts = { stdio: 'inherit' };
     return cdv.superspawn.spawn(bin, args, copts);
 }
@@ -329,6 +334,7 @@ function funcName(plugins, opts) {
 PlatformProject.prototype.loadPlugins = loadPlugins;
 function loadPlugins(pluginDirs, opts) {
     var self = checkThis(this);
+    opts = opts || {};
     if (!__.isArray(pluginDirs)) {
         pluginDirs = [pluginDirs];
     }
