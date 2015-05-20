@@ -1,5 +1,5 @@
 {
-  "name": "CordovaPlatformProject",
+  "name": "cordova-platform-project",
   "version": "0.0.1",
   "description": "Experimental API for cordova.",
   "main": "src/PlatformProject.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/kamrik/CordovaGulpTemplate.git"
+    "url": "https://github.com/kamrik/cordova-api-example"
   },
   "keywords": [
     "Cordova"
