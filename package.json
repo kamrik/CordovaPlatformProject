@@ -4,7 +4,7 @@
   "description": "Experimental API for cordova.",
   "main": "src/PlatformProject.js",
   "scripts": {
-    "test": "echo \"No tests yet added\""
+    "test": "echo \"No tests, fix it.\""
   },
   "repository": {
     "type": "git",
@@ -13,11 +13,10 @@
   "keywords": [
     "Cordova"
   ],
-  "author": "Mark Koudritsky <kamrik@gmail.com>",
+  "author": "The Chrome Team",
   "license": "Apache version 2.0",
-  "devDependencies": {},
   "dependencies": {
-    "cordova-lib": "latest",
+    "cordova-lib": "^5.0.0",
     "q": "^1.2.0",
     "shelljs": "^0.3.0",
     "lodash": "^3.5.0"
